@@ -1,45 +1,57 @@
 import React, { useState } from 'react';
 import ResizeTextArea from 'react-textarea-autosize';
-import { NextPage } from 'next';
+import { GetServerSideProps, NextPage } from 'next';
 import {
   Avatar,
   Box,
   Button,
+  Center,
   Flex,
   FormControl,
   FormLabel,
-  Radio,
   Switch,
   Text,
   Textarea,
   useToast,
 } from '@chakra-ui/react';
+import axios, { AxiosResponse } from 'axios';
 import { useAuth } from '@/contexts/auth_ser.context';
 import ServiceLayout from '@/components/service_layout';
+import { InAuthUser } from '@/models/in_auth_user';
 
-const userInfo = {
-  uid: '123124214',
-  displayName: 'test',
-  email: 'yjlee1937@gmail.com',
-  photoURL: 'https://avatars.githubusercontent.com/u/78532129?v=4',
-};
+interface Props {
+  userInfo: InAuthUser | null;
+}
 
-const UserHomePage: NextPage = function () {
+const UserHomePage: NextPage<Props> = function ({ userInfo }) {
   const [message, setMessage] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
 
   const { authUser } = useAuth();
 
   const toast = useToast();
+  if (userInfo === null) {
+    return (
+      <Center bg="#FFB86C" h="50px" color="white">
+        <Avatar size="sm" mr="3" src="https://bit.ly/broken-link" />
+        해당 사용자를 찾지 못했어요...
+      </Center>
+    );
+  }
   return (
     <ServiceLayout title="test" backgroundColor="gray.100" minH="100vh">
       <Box maxW="md" mx="auto" pt="6">
         <Box borderWidth="1px" bgColor="white" borderRadius="lg" overflow="hidden" mb="2">
           <Flex p="6">
-            <Avatar size="lg" src={userInfo.photoURL} name={`${userInfo.displayName}PHOTO_URL`} mr="2" />
+            <Avatar
+              size="lg"
+              src={userInfo?.photoURL ?? 'https://bit.ly/broken-link'}
+              name={`${userInfo?.displayName}PHOTO_URL`}
+              mr="2"
+            />
             <Flex direction="column" justify="center">
-              <Text fontSize="md">{authUser?.displayName}</Text>
-              <Text fontSize="xs">{authUser?.email}</Text>
+              <Text fontSize="md">{userInfo?.displayName}</Text>
+              <Text fontSize="xs">{userInfo?.email}</Text>
             </Flex>
           </Flex>
         </Box>
@@ -49,8 +61,8 @@ const UserHomePage: NextPage = function () {
             <Avatar
               mr="2"
               size="xs"
-              src={isAnonymous ? 'https://bit.ly/broken-link' : userInfo?.photoURL ?? 'https://bit.ly/broken-link'}
-              name={`${userInfo.displayName}PHOTO_URL`}
+              src={isAnonymous ? 'https://bit.ly/broken-link' : authUser?.photoURL ?? 'https://bit.ly/broken-link'}
+              name={`${authUser?.displayName}PHOTO_URL`}
             />
             <Textarea
               bg="gray.100"
@@ -74,6 +86,18 @@ const UserHomePage: NextPage = function () {
                       status: 'warning',
                       duration: 2000,
                     });
+                    setMessage(message);
+                    return;
+                  }
+                  if (e.currentTarget.value.length > 700) {
+                    toast({
+                      title: '최대 700자까지 입력 가능합니다.',
+                      position: 'top-right',
+                      status: 'warning',
+                      duration: 2000,
+                    });
+                    setMessage(message);
+                    return;
                   }
                 }
                 setMessage(e.currentTarget.value);
@@ -119,6 +143,38 @@ const UserHomePage: NextPage = function () {
       </Box>
     </ServiceLayout>
   );
+};
+
+export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
+  const { screenName } = query;
+  if (screenName === undefined) {
+    return {
+      props: {
+        userInfo: null,
+      },
+    };
+  }
+  try {
+    const protocol = process.env.PROTOCAL || 'http';
+    const host = process.env.HOST || 'localhost';
+    const port = process.env.PORT || '3000';
+    const baseUrl = `${protocol}://${host}:${port}`;
+    const userInfoResp: AxiosResponse<InAuthUser> = await axios(`${baseUrl}/api/user.info/${screenName}`);
+    console.info(userInfoResp.data);
+
+    return {
+      props: {
+        userInfo: userInfoResp.data ?? null,
+      },
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      props: {
+        userInfo: null,
+      },
+    };
+  }
 };
 
 export default UserHomePage;
