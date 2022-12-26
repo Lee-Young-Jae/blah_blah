@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supportMethods = ['POST'];
   try {
     checkSupportMethod(supportMethods, method);
-    await MessageCtrl.post(req, res);
+    await MessageCtrl.postReply(req, res);
   } catch (error) {
     console.error(error);
     // 에러 처리
