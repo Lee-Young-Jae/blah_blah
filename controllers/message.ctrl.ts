@@ -15,8 +15,39 @@ async function post(req: NextApiRequest, res: NextApiResponse) {
   return res.status(201).end();
 }
 
+async function list(req: NextApiRequest, res: NextApiResponse) {
+  const { uid } = req.query;
+  if (uid === undefined) {
+    throw new BadReqError('uid is undefined');
+  }
+  const uidToString = Array.isArray(uid) ? uid[0] : uid;
+  const listResp = await MessageModel.list({ uid: uidToString });
+  return res.status(200).json(listResp);
+}
+
+async function postReply(req: NextApiRequest, res: NextApiResponse) {
+  const { uid, reply, messageId } = req.body;
+
+  if (uid === undefined) {
+    throw new BadReqError('uid is undefined');
+  }
+
+  if (reply === undefined) {
+    throw new BadReqError('reply is undefined');
+  }
+
+  if (messageId === undefined) {
+    throw new BadReqError('messageId is undefined');
+  }
+
+  await MessageModel.postReply({ uid, reply, messageId });
+  return res.status(201).end();
+}
+
 const MessageCtrl = {
   post,
+  list,
+  postReply,
 };
 
 export default MessageCtrl;

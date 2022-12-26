@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ResizeTextArea from 'react-textarea-autosize';
 import { GetServerSideProps, NextPage } from 'next';
 import {
@@ -13,23 +13,87 @@ import {
   Text,
   Textarea,
   useToast,
+  VStack,
 } from '@chakra-ui/react';
 import axios, { AxiosResponse } from 'axios';
+import { Auth } from 'firebase-admin/lib/auth/auth';
 import { useAuth } from '@/contexts/auth_ser.context';
 import ServiceLayout from '@/components/service_layout';
 import { InAuthUser } from '@/models/in_auth_user';
+import MessageItem from '@/components/message_item';
+import { InMessage } from '@/models/message/in_message';
 
 interface Props {
   userInfo: InAuthUser | null;
 }
 
+async function postMessage({
+  uid,
+  message,
+  author,
+}: {
+  uid: string;
+  message: string;
+  author?: {
+    displayName: string;
+    photoURL?: string;
+  };
+}) {
+  if (message.length <= 0) {
+    return {
+      result: false,
+      message: '메시지가 없습니다.',
+    };
+  }
+  try {
+    await fetch('/api/messages.add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uid,
+        message,
+        author,
+      }),
+    });
+    return {
+      result: true,
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      result: false,
+      message: '메시지 전송에 실패했습니다.',
+    };
+  }
+}
+
 const UserHomePage: NextPage<Props> = function ({ userInfo }) {
   const [message, setMessage] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
-
-  const { authUser } = useAuth();
+  const [messageList, setMessageList] = useState<InMessage[]>([]);
 
   const toast = useToast();
+  const { authUser } = useAuth();
+  async function fetchMessageList(uid: string) {
+    try {
+      const resp = await fetch(`/api/messages.list?uid=${uid}`);
+      if (resp.status === 200) {
+        const data = await resp.json();
+        setMessageList(data);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  useEffect(() => {
+    if (userInfo === null) {
+      return;
+    }
+    fetchMessageList(userInfo.uid);
+  }, [userInfo]);
+
   if (userInfo === null) {
     return (
       <Center bg="#FFB86C" h="50px" color="white">
@@ -38,6 +102,8 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
       </Center>
     );
   }
+
+  const isOwner = authUser !== null && authUser.uid === userInfo.uid;
   return (
     <ServiceLayout title="test" backgroundColor="gray.100" minH="100vh">
       <Box maxW="md" mx="auto" pt="6">
@@ -110,6 +176,33 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
               colorScheme="yellow"
               variant="solid"
               size="sm"
+              onClick={async () => {
+                const postData: {
+                  uid: string;
+                  message: string;
+                  author?: { displayName: string; photoURL?: string };
+                } = {
+                  uid: userInfo.uid,
+                  message,
+                };
+                if (isAnonymous === false) {
+                  postData.author = {
+                    photoURL: authUser?.photoURL ?? 'https://bit.ly/broken-link',
+                    displayName: authUser?.displayName ?? 'anonymous',
+                  };
+                }
+                const messageResp = await postMessage(postData);
+                if (messageResp.result === false) {
+                  toast({
+                    title: messageResp.message,
+                    position: 'top-right',
+                    status: 'error',
+                    duration: 2000,
+                  });
+                  return;
+                }
+                setMessage('');
+              }}
             >
               등록
             </Button>
@@ -140,6 +233,18 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
             </FormLabel>
           </FormControl>
         </Box>
+        <VStack spacing="12px" mt="6">
+          {messageList?.map((messageData) => (
+            <MessageItem
+              key={`message-item-${userInfo.uid}-${messageData.id}`}
+              item={messageData}
+              uid={userInfo.uid}
+              displayName={userInfo.displayName ?? 'anonymous'}
+              photoURL={messageData.author?.photoURL ?? 'https://bit.ly/broken-link'}
+              isOwner={isOwner}
+            />
+          ))}
+        </VStack>
       </Box>
     </ServiceLayout>
   );
