@@ -73,6 +73,7 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
   const [message, setMessage] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [messageList, setMessageList] = useState<InMessage[]>([]);
+  const [messageListFetchTrigger, setMessageListFetchTrigger] = useState(false);
 
   const toast = useToast();
   const { authUser } = useAuth();
@@ -92,7 +93,7 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
       return;
     }
     fetchMessageList(userInfo.uid);
-  }, [userInfo]);
+  }, [userInfo, messageListFetchTrigger]);
 
   if (userInfo === null) {
     return (
@@ -242,6 +243,9 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
               displayName={userInfo.displayName ?? 'anonymous'}
               photoURL={messageData.author?.photoURL ?? 'https://bit.ly/broken-link'}
               isOwner={isOwner}
+              onSendComplete={() => {
+                setMessageListFetchTrigger((prev) => !prev);
+              }}
             />
           ))}
         </VStack>

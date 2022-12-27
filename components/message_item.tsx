@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ResizeTextArea from 'react-textarea-autosize';
 import { Avatar, Box, Button, Divider, Flex, Text, Textarea } from '@chakra-ui/react';
 import { InMessage } from '@/models/message/in_message';
@@ -10,11 +10,29 @@ interface Props {
   displayName: string;
   isOwner: boolean;
   item: InMessage;
+  onSendComplete: () => void;
 }
 
-const MessageItem = function ({ photoURL, uid, displayName, isOwner, item }: Props) {
+const MessageItem = function ({ photoURL, uid, displayName, isOwner, item, onSendComplete }: Props) {
+  const [reply, setReply] = useState('');
   const haveReply = item.reply !== undefined;
+  async function postReply() {
+    const resp = await fetch('/api/messages.add.reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uid,
+        reply,
+        messageId: item.id,
+      }),
+    });
 
+    if (resp.status < 300) {
+      onSendComplete();
+    }
+  }
   return (
     <Box bg="white" borderRadius="md" boxShadow="md" borderColor="gray" width="full">
       <Box>
@@ -74,9 +92,22 @@ const MessageItem = function ({ photoURL, uid, displayName, isOwner, item }: Pro
                     fontSize="xs"
                     placeholder="댓글을 입력하세요..."
                     as={ResizeTextArea}
+                    value={reply}
+                    onChange={(e) => {
+                      setReply(e.currentTarget.value);
+                    }}
                   />
                 </Box>
-                <Button colorScheme="pink" bgColor="#ff75b5" variant="solid" size="sm">
+                <Button
+                  disabled={reply.length === 0}
+                  onClick={() => {
+                    postReply();
+                  }}
+                  colorScheme="pink"
+                  bgColor="#ff75b5"
+                  variant="solid"
+                  size="sm"
+                >
                   등록
                 </Button>
               </Box>
