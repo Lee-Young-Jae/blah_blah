@@ -143,7 +143,9 @@ const MessageItem = function ({ photoURL, uid, screenName, displayName, isOwner,
                 </Box>
                 <Box borderRadius="md" p="2" width="full" bg="gray.100">
                   <Flex alignItems="center">
-                    <Text fontSize="xs">{displayName}</Text>
+                    <Text fontSize="xs" mr="2px">
+                      {displayName}
+                    </Text>
                     <Text whiteSpace="pre-line" fontSize="xs" color="gray">
                       {convertDateToString(item.replyAt!)}
                     </Text>
