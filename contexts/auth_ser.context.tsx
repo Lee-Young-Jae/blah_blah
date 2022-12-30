@@ -5,7 +5,7 @@ import useFirebaseAuth from '@/hooks/use_firebase_auth';
 
 interface InAuthUserContext {
   authUser: InAuthUser | null;
-  /** 로그인 여뷰가 진행중인지 체크 */
+  /** 로그인 여부가 진행중인지 체크 */
   loading: boolean;
   signInWithGoogle: () => void;
   signOut: () => void;
