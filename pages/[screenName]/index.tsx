@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import ResizeTextArea from 'react-textarea-autosize';
 import { GetServerSideProps, NextPage } from 'next';
+import { useQuery } from 'react-query';
 import {
   Avatar,
   Box,
@@ -16,7 +17,6 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import axios, { AxiosResponse } from 'axios';
-import { Auth } from 'firebase-admin/lib/auth/auth';
 import { useAuth } from '@/contexts/auth_ser.context';
 import ServiceLayout from '@/components/service_layout';
 import { InAuthUser } from '@/models/in_auth_user';
@@ -25,6 +25,7 @@ import { InMessage } from '@/models/message/in_message';
 
 interface Props {
   userInfo: InAuthUser | null;
+  screenName: string;
 }
 
 async function postMessage({
@@ -69,31 +70,64 @@ async function postMessage({
   }
 }
 
-const UserHomePage: NextPage<Props> = function ({ userInfo }) {
+const UserHomePage: NextPage<Props> = function ({ userInfo, screenName }) {
   const [message, setMessage] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [messageList, setMessageList] = useState<InMessage[]>([]);
   const [messageListFetchTrigger, setMessageListFetchTrigger] = useState(false);
 
   const toast = useToast();
   const { authUser } = useAuth();
-  async function fetchMessageList(uid: string) {
+
+  async function fetchMessageInfo({ uid, messageId }: { uid: string; messageId: string }) {
     try {
-      const resp = await fetch(`/api/messages.list?uid=${uid}`);
+      const resp = await fetch(`/api/messages.info?uid=${uid}&messageId=${messageId}`);
       if (resp.status === 200) {
-        const data = await resp.json();
-        setMessageList(data);
+        const data: InMessage = await resp.json();
+        setMessageList((prev) => {
+          const findIndex = prev.findIndex((fv) => fv.id === data.id);
+          if (findIndex >= 0) {
+            const updateArr = [...prev];
+            updateArr[findIndex] = data;
+            return updateArr;
+          }
+          return prev;
+        });
       }
     } catch (error) {
       console.error(error);
     }
   }
-  useEffect(() => {
-    if (userInfo === null) {
-      return;
-    }
-    fetchMessageList(userInfo.uid);
-  }, [userInfo, messageListFetchTrigger]);
+
+  const messageListQueryKey = ['messageList', userInfo?.uid, page, messageListFetchTrigger];
+  useQuery(
+    messageListQueryKey,
+    async () =>
+      // eslint-disable-next-line no-return-await
+      await axios.get<{
+        totalElements: number;
+        totalPages: number;
+        page: number;
+        size: number;
+        content: InMessage[];
+      }>(`/api/messages.list?uid=${userInfo?.uid}&page=${page}&size=10`),
+    {
+      // react-query 옵션
+      keepPreviousData: true, // 이전 데이터를 유지하고 새로운 데이터가 오면 이전 데이터와 합친다.
+      refetchOnWindowFocus: false, // 창이 포커스 되었을 때 다시 요청을 보내지 않는다.
+      onSuccess: (data) => {
+        // 요청이 성공했을 때
+        setTotalPages(data.data.totalPages);
+        if (page === 1) {
+          setMessageList(data.data.content);
+          return;
+        }
+        setMessageList((prev) => [...prev, ...data.data.content]);
+      },
+    },
+  );
 
   if (userInfo === null) {
     return (
@@ -129,7 +163,7 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
               mr="2"
               size="xs"
               src={isAnonymous ? 'https://bit.ly/broken-link' : authUser?.photoURL ?? 'https://bit.ly/broken-link'}
-              name={`${authUser?.displayName}PHOTO_URL`}
+              // name={`${authUser?.displayName}PHOTO_URL`}
             />
             <Textarea
               bg="gray.100"
@@ -203,6 +237,10 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
                   return;
                 }
                 setMessage('');
+                setPage(1);
+                setTimeout(() => {
+                  setMessageListFetchTrigger((prev) => !prev);
+                }, 50);
               }}
             >
               등록
@@ -240,15 +278,28 @@ const UserHomePage: NextPage<Props> = function ({ userInfo }) {
               key={`message-item-${userInfo.uid}-${messageData.id}`}
               item={messageData}
               uid={userInfo.uid}
+              screenName={screenName}
               displayName={userInfo.displayName ?? 'anonymous'}
-              photoURL={messageData.author?.photoURL ?? 'https://bit.ly/broken-link'}
+              photoURL={messageData.author?.photoURL ?? './'}
               isOwner={isOwner}
               onSendComplete={() => {
-                setMessageListFetchTrigger((prev) => !prev);
+                fetchMessageInfo({ uid: userInfo.uid, messageId: messageData.id });
               }}
             />
           ))}
         </VStack>
+        {totalPages > page && (
+          <Button
+            width="full"
+            mt="2"
+            fontSize="sm"
+            onClick={() => {
+              setPage((prev) => prev + 1);
+            }}
+          >
+            더보기
+          </Button>
+        )}
       </Box>
     </ServiceLayout>
   );
@@ -260,20 +311,22 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) =
     return {
       props: {
         userInfo: null,
+        screenName: '',
       },
     };
   }
+  const screenNameToString = Array.isArray(screenName) ? screenName[0] : screenName;
   try {
     const protocol = process.env.PROTOCAL || 'http';
     const host = process.env.HOST || 'localhost';
     const port = process.env.PORT || '3000';
     const baseUrl = `${protocol}://${host}:${port}`;
     const userInfoResp: AxiosResponse<InAuthUser> = await axios(`${baseUrl}/api/user.info/${screenName}`);
-    console.info(userInfoResp.data);
 
     return {
       props: {
         userInfo: userInfoResp.data ?? null,
+        screenName: screenNameToString,
       },
     };
   } catch (error) {
@@ -281,6 +334,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) =
     return {
       props: {
         userInfo: null,
+        screenName: '',
       },
     };
   }
