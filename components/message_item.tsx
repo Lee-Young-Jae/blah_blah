@@ -1,21 +1,40 @@
 import React, { useState } from 'react';
 import ResizeTextArea from 'react-textarea-autosize';
-import { Avatar, Box, Button, Divider, Flex, Text, Textarea } from '@chakra-ui/react';
+import {
+  Avatar,
+  Box,
+  Button,
+  Divider,
+  Flex,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
+  Spacer,
+  Text,
+  Textarea,
+  useToast,
+} from '@chakra-ui/react';
 import { InMessage } from '@/models/message/in_message';
 import convertDateToString from '@/utils/convert_date_to_string';
+import MoreBtnIcon from './more_btn_icon';
+import FirebaseClient from '@/models/firebase_client';
 
 interface Props {
   uid: string;
   photoURL: string;
+  screenName: string;
   displayName: string;
   isOwner: boolean;
   item: InMessage;
   onSendComplete: () => void;
 }
 
-const MessageItem = function ({ photoURL, uid, displayName, isOwner, item, onSendComplete }: Props) {
+const MessageItem = function ({ photoURL, uid, screenName, displayName, isOwner, item, onSendComplete }: Props) {
   const [reply, setReply] = useState('');
-  const haveReply = item.reply !== undefined;
+  const tosast = useToast();
+
   async function postReply() {
     const resp = await fetch('/api/messages.add.reply', {
       method: 'POST',
@@ -33,10 +52,41 @@ const MessageItem = function ({ photoURL, uid, displayName, isOwner, item, onSen
       onSendComplete();
     }
   }
+
+  async function updateMessage({ deny }: { deny: boolean }) {
+    const token = await FirebaseClient.getInstance().Auth.currentUser?.getIdToken();
+    if (token === undefined) {
+      tosast({
+        title: '로그인이 필요합니다.',
+        status: 'error',
+      });
+      return;
+    }
+    const resp = await fetch('/api/messages.deny', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: token,
+      },
+
+      body: JSON.stringify({
+        uid,
+        messageId: item.id,
+        deny,
+      }),
+    });
+
+    if (resp.status < 300) {
+      onSendComplete();
+    }
+  }
+
+  const haveReply = item.reply !== undefined;
+  const isDeny = item.deny !== undefined ? item.deny === true : false;
   return (
     <Box bg="white" borderRadius="md" boxShadow="md" borderColor="gray" width="full">
       <Box>
-        <Flex pl="2" pt="2" alignItems="center">
+        <Flex px="2" pt="2" alignItems="center">
           <Avatar
             size="xs"
             src={item.author ? item.author.photoURL ?? 'https://bit.ly/broken-link' : 'https://bit.ly/broken-link'}
@@ -47,6 +97,36 @@ const MessageItem = function ({ photoURL, uid, displayName, isOwner, item, onSen
           <Text whiteSpace="pre-line" fontSize="xx-small" ml="1" color="gray.500">
             {convertDateToString(item.createAt)}
           </Text>
+          <Spacer />
+          {isOwner && (
+            <Menu>
+              <MenuButton
+                as={IconButton}
+                icon={<MoreBtnIcon />}
+                width="24px"
+                height="24px"
+                borderRadius="full"
+                variant="link"
+                size="xs"
+              />
+              <MenuList>
+                <MenuItem
+                  onClick={() => {
+                    updateMessage({ deny: item.deny !== undefined ? !item.deny : true });
+                  }}
+                >
+                  {isDeny ? '비공개 처리 해제' : '비공개 처리'}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    window.location.href = `/${screenName}/${item.id}`;
+                  }}
+                >
+                  메세지 상세 보기
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          )}
         </Flex>
         <Box p="2">
           <Box borderRadius="md" borderWidth="1px" p="2">
