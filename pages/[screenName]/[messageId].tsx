@@ -63,7 +63,7 @@ const MessagePage: NextPage<Props> = function ({ userInfo, messageData: initialM
         <meta property="twitter:title" content={messageData.message} />
         <meta property="twitter:image" content={thumbnailImgUrl} />
       </Head>
-      <ServiceLayout title="test" backgroundColor="gray.100" minH="100vh">
+      <ServiceLayout title="메세지 상세보기" backgroundColor="gray.100" minH="100vh">
         <Box maxW="md" mx="auto" pt="6">
           <Link href={`/${screenName}`}>
             <a>

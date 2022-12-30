@@ -140,7 +140,7 @@ const UserHomePage: NextPage<Props> = function ({ userInfo, screenName }) {
 
   const isOwner = authUser !== null && authUser.uid === userInfo.uid;
   return (
-    <ServiceLayout title="test" backgroundColor="gray.100" minH="100vh">
+    <ServiceLayout title={`${screenName}의 홈`} backgroundColor="gray.100" minH="100vh">
       <Box maxW="md" mx="auto" pt="6">
         <Box borderWidth="1px" bgColor="white" borderRadius="lg" overflow="hidden" mb="2">
           <Flex p="6">
