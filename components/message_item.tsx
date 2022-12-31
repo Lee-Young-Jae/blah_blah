@@ -28,10 +28,20 @@ interface Props {
   displayName: string;
   isOwner: boolean;
   item: InMessage;
+  replyPhotoURL: string;
   onSendComplete: () => void;
 }
 
-const MessageItem = function ({ photoURL, uid, screenName, displayName, isOwner, item, onSendComplete }: Props) {
+const MessageItem = function ({
+  replyPhotoURL,
+  photoURL,
+  uid,
+  screenName,
+  displayName,
+  isOwner,
+  item,
+  onSendComplete,
+}: Props) {
   const [reply, setReply] = useState('');
   const tosast = useToast();
 
@@ -139,7 +149,7 @@ const MessageItem = function ({ photoURL, uid, screenName, displayName, isOwner,
               <Divider />
               <Box display="flex" mt="2">
                 <Box pt="2">
-                  <Avatar size="xs" src={photoURL} mr="2" />
+                  <Avatar size="xs" src={replyPhotoURL} mr="2" />
                 </Box>
                 <Box borderRadius="md" p="2" width="full" bg="gray.100">
                   <Flex alignItems="center">

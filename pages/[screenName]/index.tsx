@@ -281,6 +281,7 @@ const UserHomePage: NextPage<Props> = function ({ userInfo, screenName }) {
               screenName={screenName}
               displayName={userInfo.displayName ?? 'anonymous'}
               photoURL={messageData.author?.photoURL ?? './'}
+              replyPhotoURL={userInfo.photoURL ?? './'}
               isOwner={isOwner}
               onSendComplete={() => {
                 fetchMessageInfo({ uid: userInfo.uid, messageId: messageData.id });

@@ -90,6 +90,7 @@ const MessagePage: NextPage<Props> = function ({ userInfo, messageData: initialM
             screenName={screenName}
             displayName={userInfo.displayName ?? 'anonymous'}
             photoURL={messageData.author?.photoURL ?? './'}
+            replyPhotoURL={userInfo.photoURL ?? './'}
             isOwner={isOwner}
             onSendComplete={() => {
               fetchMessageInfo({ uid: userInfo.uid, messageId: messageData.id });
